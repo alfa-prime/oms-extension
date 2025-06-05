@@ -8,6 +8,7 @@
 import { initForm } from "./form.js";
 import { debounce } from "./utils.js";
 import { searchPatient } from "./search.js";
+import { fetchListMo } from "./listMo.js";
 
 export function setupSearchHandler() {
   // Debounce-версия функции поиска (чтобы при множественных Enter не спамить запросами)
@@ -31,4 +32,34 @@ export function setupSearchHandler() {
 window.addEventListener("DOMContentLoaded", () => {
   initForm();
   setupSearchHandler();
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs.length) return;
+    const tabId = tabs[0].id;
+
+    chrome.tabs.sendMessage(tabId, { action: "FETCH_LIST_MO" }, (response) => {
+      // Этот callback сработает, когда content.js вызовет sendResponse(...)
+      if (!response) {
+        showError("Нет ответа от content.js");
+        return;
+      }
+
+      if (!response.success && response.status === 404) {
+        // техработы: эндпоинт пока лежит
+        showError("Список МО временно недоступен (404). Попробуйте позже.");
+        return;
+      } else if (!response.success) {
+        // прочая ошибка
+        showError("Не удалось получить список МО: " + response.status);
+        return;
+      }
+
+      // Если мы сюда попали, значит success:true и data содержит JSON
+      console.log("✅ МО получены (через content.js):", response.data);
+
+      // …тут вы можете заполнить, например, <select id="moDropdown"> …
+      // example:
+      // renderMoDropdown(response.data);
+    });
+  });
 });

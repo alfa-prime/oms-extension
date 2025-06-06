@@ -10,7 +10,7 @@
  */
 
 import { showMessage, showError } from "./utils.js";
-import { insertData } from "./insert.js";
+// import { insertData } from "./insert.js";
 
 const API_URL = "http://0.0.0.0:8000/api/oms-browser-extension/search";
 

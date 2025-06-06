@@ -1,8 +1,5 @@
 // js/content.js
 
-// Этот файл будет выполняться в контексте страницы gisoms.ffoms.gov.ru,
-// поэтому любые fetch-запросы, сделанные здесь, получат настоящие куки сайта.
-
 // Логируем, чтобы убедиться, что скрипт загрузился:
 console.log("✅ content.js загружен (страница).");
 
@@ -10,15 +7,13 @@ console.log("✅ content.js загружен (страница).");
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Ожидаем запрос с action = "FETCH_LIST_MO"
   if (request.action === "FETCH_LIST_MO") {
-    // Собираем URL с актуальным _dc
     const url = `https://gisoms.ffoms.gov.ru/FFOMS/action/ReferralHospitalization/ListMo?_dc=${Date.now()}`;
 
-    // Формируем тело POST как x-www-form-urlencoded
     const bodyParams = new URLSearchParams({
       FilterByUserSubject: "true",
       page: "1",
       start: "0",
-      limit: "500",
+      limit: "50",
       records: "[]",
     }).toString();
 
@@ -26,22 +21,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch(url, {
       method: "POST",
       headers: {
+        Accept: "*/*",
+        // "b4-workspace-id": "ed7b548d-2646-419c-b93a-3c7567cbb49b",
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "X-Requested-With": "XMLHttpRequest",
       },
+      referrer: "https://gisoms.ffoms.gov.ru/FOMS/ffoms/",
+      referrerPolicy: "strict-origin-when-cross-origin",
       credentials: "include", // чтобы передать cookie
       body: bodyParams,
     })
       .then((response) => {
         if (response.status === 404) {
-          // Эндпоинт не готов (техработы) – отдадим null
           console.warn("ListMo вернул 404 (тех. работы).");
           sendResponse({ success: false, status: 404, data: null });
-          return null;
+          return null; // Важно, чтобы следующий .then не пытался парсить JSON
         }
         if (!response.ok) {
-          // Любой другой ненулевой статус (500, 403, ...) – бросаем ошибку
-          throw new Error(`HTTP ${response.status}`);
+          throw new Error(`HTTP ${response.status} ${response.statusText}`);
         }
         return response.json();
       })
@@ -52,10 +49,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       })
       .catch((err) => {
         console.error("Ошибка при fetchListMo в content.js:", err);
-        sendResponse({ success: false, status: err.message, data: null });
+        sendResponse({
+          success: false,
+          status: err.message || "Network error",
+          data: null,
+        });
       });
 
-    // Говорим Chrome, что ответ придёт асинхронно
     return true;
   }
 });
